@@ -44,7 +44,7 @@ We benchmark **GPT-o1** and **Llama-3.2-8B-Instruct** on **99** lab-test scenari
 │  ├─ Accuracy R Code.nb.html
 │  ├─ IRR_Causality.nb.html
 │  └─ IRR_Causality_4Raters.html
-├─ CITATION.cff
+├─ requirement.txt
 └─ README.md
                  
 ```
