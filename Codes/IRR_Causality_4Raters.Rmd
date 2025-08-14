@@ -1,0 +1,512 @@
+
+---
+title: "Inter-Rater Reliability for Causal Reasoning Study (4 Raters)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(irr)
+library(irrCAC)
+library(psych)
+library(readxl)
+
+```
+
+## Load Data
+
+```{r load-data}
+data <- read_excel("C:\\D\\e Health Lab projects\\Question_Answering\\LLM_Causality\\Clinican results\\Causal IRR_R4.xlsx")
+
+# Rename relevant columns for easier processing
+data <- data %>%
+  rename(
+    R1_Binary = Rater_1_Accurate_Correct_Response_Yes_No,
+    R2_Binary = Rater_2_Accurate_Correct_Response_Yes_No,
+    R3_Binary = Rater_3_Accurate_Correct_Response_Yes_No,
+    R4_Binary = Rater_4_Accurate_Correct_Response_Yes_No,
+    R1_Likert = Rater_1_Reliable_Reasoning_1_high_to_5_poor,
+    R2_Likert = Rater_2_Reliable_Reasoning_1_high_to_5_poor,
+    R3_Likert = Rater_3_Reliable_Reasoning_1_high_to_5_poor,
+    R4_Likert = Rater_4_Reliable_Reasoning_1_high_to_5_poor
+  )
+
+# Convert Yes/No to binary
+data <- data %>%
+  mutate(across(c(R1_Binary, R2_Binary, R3_Binary, R4_Binary), ~ ifelse(.x == "Yes", 1, 0)))
+```
+
+## Binary Agreement (Fleiss’ Kappa + Percent Agreement)
+
+```{r binary-agreement}
+binary_mat <- as.matrix(data %>% select(R1_Binary, R2_Binary, R3_Binary, R4_Binary))
+kappa_binary <- kappam.fleiss(binary_mat)
+kappa_binary
+
+percent_agreement <- function(mat) {
+  agree <- apply(mat, 1, function(x) {
+    tbl <- table(x)
+    max(tbl) / sum(tbl)
+  })
+  mean(agree)
+}
+percent_agreement(binary_mat)
+```
+```{r}
+# Load irrCAC
+library(irrCAC)
+
+# Prepare the input as a data frame of numeric values
+conger_input <- data %>%
+  select(R1_Binary, R2_Binary, R3_Binary, R4_Binary) %>%
+  mutate(across(everything(), as.numeric)) %>%
+  as.data.frame()
+
+# Run Conger's exact kappa
+conger_kappa <- irrCAC::conger.kappa(conger_input)
+print(conger_kappa)
+
+```
+
+## Likert Agreement (ICC + Krippendorff Alpha)
+
+```{r likert-agreement}
+# Ensure all Likert ratings are numeric
+likert_mat <- data %>%
+  select(R1_Likert, R2_Likert, R3_Likert, R4_Likert) %>%
+  mutate(across(everything(), as.numeric)) %>%
+  as.matrix()
+
+# ICC (2,1)
+ICC(likert_mat)
+
+
+```
+
+```{r}
+# Krippendorff's alpha
+kripp.alpha(likert_mat, method = "ordinal")
+
+```
+
+
+
+## Agreement by Causal Type and LLM
+
+```{r subgroup-metrics}
+# Fleiss Kappa by LLM and Causal Type
+# Updated safe ICC wrapper using `pick()`
+by_group_icc <- data %>%
+  group_by(LLM, Rung) %>%
+  summarise(
+    ICC = {
+      mat <- pick(R1_Likert, R2_Likert, R3_Likert, R4_Likert) %>%
+        mutate(across(everything(), as.numeric)) %>%
+        as.matrix()
+      ICC(mat)$value
+    },
+    .groups = "drop"
+  )
+by_group_icc
+by_group_kappa <- data %>%
+  group_by(LLM, Rung) %>%
+  summarise(
+    Kappa = {
+      mat <- pick(R1_Binary, R2_Binary, R3_Binary, R4_Binary) %>%
+        mutate(across(everything(), as.numeric)) %>%
+        as.matrix()
+      kappam.fleiss(mat)$value
+    },
+    .groups = "drop"
+  )
+by_group_kappa
+```
+
+## Likert Distribution Plot
+
+```{r likert-plot}
+data %>%
+  mutate(across(c(R1_Likert, R2_Likert, R3_Likert, R4_Likert), as.numeric)) %>%
+  rowwise() %>%
+  mutate(Mean_Likert = mean(c_across(R1_Likert:R4_Likert), na.rm = TRUE)) %>%
+  ungroup() %>%
+  ggplot(aes(x = LLM, y = Mean_Likert, fill = Rung)) +
+  geom_boxplot() +
+  labs(title = "Mean Likert Score by LLM and Causal Type", y = "Mean Likert Score (1 = High, 5 = Poor)") +
+  theme_minimal()
+
+```
+```{r}
+# Load libraries
+library(readxl)
+library(dplyr)
+library(irr)
+library(psych)
+library(tidyr)
+
+# Load your Excel file
+data <- read_excel("C:\\D\\e Health Lab projects\\Question_Answering\\LLM_Causality\\Clinican results\\Causal IRR_R4.xlsx")
+
+# Rename columns for consistency
+data <- data %>%
+  rename(
+    R1_Binary = Rater_1_Accurate_Correct_Response_Yes_No,
+    R2_Binary = Rater_2_Accurate_Correct_Response_Yes_No,
+    R3_Binary = Rater_3_Accurate_Correct_Response_Yes_No,
+    R4_Binary = Rater_4_Accurate_Correct_Response_Yes_No,
+    R1_Likert = Rater_1_Reliable_Reasoning_1_high_to_5_poor,
+    R2_Likert = Rater_2_Reliable_Reasoning_1_high_to_5_poor,
+    R3_Likert = Rater_3_Reliable_Reasoning_1_high_to_5_poor,
+    R4_Likert = Rater_4_Reliable_Reasoning_1_high_to_5_poor
+  )
+
+# Convert Yes/No to binary (1 = Yes, 0 = No)
+data <- data %>%
+  mutate(across(c(R1_Binary, R2_Binary, R3_Binary, R4_Binary), ~ ifelse(.x == "Yes", 1, 0)))
+
+# ------------------------------------------
+# Likert Inter-Rater Reliability
+# ------------------------------------------
+
+# Create numeric matrix of Likert scores
+likert_mat <- data %>%
+  select(R1_Likert, R2_Likert, R3_Likert, R4_Likert) %>%
+  mutate(across(everything(), as.numeric)) %>%
+  as.matrix()
+
+# ICC(2,1)
+icc_result <- ICC(likert_mat)
+print(icc_result)
+
+```
+
+
+```{r}
+
+# Krippendorff’s alpha (ordinal)
+kripp_result <- kripp.alpha(likert_mat, method = "ordinal")
+print(kripp_result)
+
+
+
+
+
+
+
+```
+
+```{r}
+# Kendall's W (with ties correction)
+kendall_result <- kendall(likert_mat)
+print(kendall_result)
+```
+
+
+```{r}
+# ------------------------------------------
+# Fleiss’ Kappa for Binary (Overall)
+# ------------------------------------------
+
+binary_mat <- data %>%
+  select(R1_Binary, R2_Binary, R3_Binary, R4_Binary) %>%
+  mutate(across(everything(), as.numeric)) %>%
+  as.matrix()
+
+kappa_result <- kappam.fleiss(binary_mat)
+print(kappa_result)
+
+
+```
+
+```{r}
+# ------------------------------------------
+# Subgroup IRR by LLM and Causal Type
+# ------------------------------------------
+
+# ICC (Likert) by LLM and Rung
+by_group_icc <- data %>%
+  group_by(LLM, Rung) %>%
+  summarise(
+    ICC = {
+      mat <- pick(R1_Likert, R2_Likert, R3_Likert, R4_Likert) %>%
+        mutate(across(everything(), as.numeric)) %>%
+        as.matrix()
+      ICC(mat)$value
+    },
+    .groups = "drop"
+  )
+
+# Fleiss’ Kappa (Binary) by LLM and Rung
+by_group_kappa <- data %>%
+  group_by(LLM, Rung) %>%
+  summarise(
+    Kappa = {
+      mat <- pick(R1_Binary, R2_Binary, R3_Binary, R4_Binary) %>%
+        mutate(across(everything(), as.numeric)) %>%
+        as.matrix()
+      kappam.fleiss(mat)$value
+    },
+    .groups = "drop"
+  )
+
+# View results
+print(by_group_icc)
+
+
+```
+
+```{r}
+print(by_group_kappa)
+```
+
+```{r}
+#── Libraries ───────────────────────────────────────────────────────────────
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(irr)
+
+#── Load the data ───────────────────────────────────────────────────────────
+data <- read_excel(
+  "C:/D/e Health Lab projects/Question_Answering/LLM_Causality/Clinican results/Causal IRR_R4.xlsx"
+)
+
+#── Rename & binarize ────────────────────────────────────────────────────────
+data <- data %>%
+  rename(
+    R1_Binary = Rater_1_Accurate_Correct_Response_Yes_No,
+    R2_Binary = Rater_2_Accurate_Correct_Response_Yes_No,
+    R3_Binary = Rater_3_Accurate_Correct_Response_Yes_No,
+    R4_Binary = Rater_4_Accurate_Correct_Response_Yes_No
+  ) %>%
+  mutate(across(
+    c(R1_Binary, R2_Binary, R3_Binary, R4_Binary),
+    ~ ifelse(.x == "Yes", 1L, 0L)
+  ))
+
+#── Define LLMs and Causal Rungs ─────────────────────────────────────────────
+llms  <- unique(data$LLM)
+rungs <- c("Overall", "Association", "Intervention", "Counterfactual")
+
+#── Prepare results container ────────────────────────────────────────────────
+results <- data.frame(
+  LLM   = character(),
+  Rung  = character(),
+  Kappa = numeric(),
+  stringsAsFactors = FALSE
+)
+
+#── Loop & compute Conger's exact kappa via irr ─────────────────────────────
+for (llm in llms) {
+  for (rung in rungs) {
+    # Filter by LLM and rung
+    subset_data <- data %>%
+      filter(LLM == llm, if (rung=="Overall") TRUE else Rung == rung)
+    
+    if (nrow(subset_data) == 0) next
+    
+    # Build rating matrix (raters in columns)
+    mat <- subset_data %>%
+      select(R1_Binary, R2_Binary, R3_Binary, R4_Binary) %>%
+      mutate(across(everything(), as.integer)) %>%
+      as.data.frame()
+    
+    # Compute Conger's exact kappa (multi-rater Fleiss kappa exact)
+    conger <- kappam.fleiss(
+      ratings = mat,
+      exact   = TRUE
+    )
+    
+    # Extract the kappa estimate
+    kappa_val <- conger$value
+    
+    # Append to results
+    results <- rbind(
+      results,
+      data.frame(LLM = llm, Rung = rung, Kappa = kappa_val)
+    )
+  }
+}
+results$Rung <- factor(
+  results$Rung,
+  levels = c("Overall", "Association", "Intervention", "Counterfactual")
+)
+
+# then your ggplot call will respect that order:
+ggplot(results, aes(x = LLM, y = Kappa, fill = Rung)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  labs(
+    title = "Intra‑model Agreement: Fleiss’ Kappa (Conger’s Exact)",
+    x     = NULL,
+    y     = "Kappa"
+  ) +
+ scale_fill_manual(
+  name   = "Rung",
+  values = c(
+    Overall        = "#B3D5E0",
+    Association    = "#137BB6",
+    Intervention   = "#C31E3F",
+    Counterfactual = "#CDE5C0"
+  )
+) +
+  theme_minimal() +
+  theme(
+    axis.text.x  = element_text(angle = 45, hjust = 1),
+    legend.title = element_blank()
+  )
+
+```
+```{r}
+# Assign your plot to an object
+p <- ggplot(results, aes(x = LLM, y = Kappa, fill = Rung)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  labs(
+    title = "Intra‑model Agreement: Fleiss’ Kappa (Conger’s Exact)",
+    x     = NULL,
+    y     = "Kappa"
+  ) +
+  scale_fill_manual(
+    name   = "Rung",
+    values = c(
+    Overall        = "#B3D5E0",
+    Association    = "#137BB6",
+    Intervention   = "#C31E3F",
+    Counterfactual = "#CDE5C0"
+    )
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x  = element_text(angle = 45, hjust = 1),
+    legend.title = element_blank()
+  )
+
+# Save to file (PNG)
+ggsave(
+  filename = "C:/D/e Health Lab projects/Question_Answering/LLM_Causality/Clinican results/intra_model_agreement_kappa.png",
+  plot     = p,
+  width    = 8,      # in inches
+  height   = 5,      # in inches
+  dpi      = 300,
+  bg       = "white"      # <— fill background with white
+)
+```
+
+
+```{r}
+#── Libraries ───────────────────────────────────────────────────────────────
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(irr)
+
+#── Load the data ───────────────────────────────────────────────────────────
+data <- read_excel(
+  "C:/D/e Health Lab projects/Question_Answering/LLM_Causality/Clinican results/Causal IRR_R4.xlsx"
+)
+
+data <- data %>%
+  rename(
+    R1_Likert = Rater_1_Reliable_Reasoning_1_high_to_5_poor,
+    R2_Likert = Rater_2_Reliable_Reasoning_1_high_to_5_poor,
+    R3_Likert = Rater_3_Reliable_Reasoning_1_high_to_5_poor,
+    R4_Likert = Rater_4_Reliable_Reasoning_1_high_to_5_poor
+  ) %>%
+  mutate(across(
+    ends_with("_Likert"),
+    ~ as.integer(gsub("\\D+", "", as.character(.)))
+  ))
+
+# ensure factor‐level ordering on Rung
+data$Rung <- factor(
+  data$Rung,
+  levels = c("Overall", "Association", "Intervention", "Counterfactual")
+)
+
+
+```
+```{r}
+#── Define LLMs and Causal Rungs ─────────────────────────────────────────────
+llms  <- unique(data$LLM)
+rungs <- c("Overall", "Association", "Intervention", "Counterfactual")
+
+#── Prepare results container ────────────────────────────────────────────────
+results_w <- data.frame(
+  LLM  = character(),
+  Rung = character(),
+  W    = numeric(),
+  stringsAsFactors = FALSE
+)
+
+#── Loop & compute Kendall’s W (with ties correction) ───────────────────────
+for (llm in llms) {
+  for (rung in rungs) {
+    subset_data <- data %>%
+      filter(LLM == llm, if (rung == "Overall") TRUE else Rung == rung)
+    if (nrow(subset_data) == 0) next
+    
+    # Build rating matrix (raters in columns)
+    mat_likert <- subset_data %>%
+      select(R1_Likert, R2_Likert, R3_Likert, R4_Likert) %>%
+      as.data.frame()
+    
+    # Compute Kendall's W with ties correction
+    kendall_res <- irr::kendall(
+      ratings = mat_likert,
+      correct = TRUE
+    )
+    
+    # Extract W
+    W_val <- kendall_res$value
+    
+    # Append to results
+    results_w <- rbind(
+      results_w,
+      data.frame(LLM = llm, Rung = rung, W = W_val)
+    )
+  }
+}
+
+#── Reorder factor levels for plotting ────────────────────────────────────────
+results_w$Rung <- factor(
+  results_w$Rung,
+  levels = c("Overall", "Association", "Intervention", "Counterfactual")
+)
+
+#── Plot Kendall’s W ────────────────────────────────────────────────────────
+p_w <- ggplot(results_w, aes(x = LLM, y = W, fill = Rung)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  labs(
+    title = "Inter‑rater Concordance: Kendall’s W (with Ties’ Correction)",
+    x     = NULL,
+    y     = "Kendall's W"
+  ) +
+  scale_fill_manual(
+    name   = "Rung",
+    values = c(
+      "#B3D5E0",  # Overall
+      "#F4EFEF",  # Association
+      "#C31E3F",  # Intervention
+      "#BAC7CB"   # Counterfactual
+    )
+  ) +
+  theme_minimal() +
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background  = element_rect(fill = "white", color = NA),
+    axis.text.x      = element_text(angle = 45, hjust = 1),
+    legend.title     = element_blank()
+  )
+
+
+#── Save the plot with solid white background ───────────────────────────────
+ggsave(
+  filename = "C:/D/e Health Lab projects/Question_Answering/LLM_Causality/Clinican results/kendall_w_likert_concordance.png",
+  plot     = p_w,
+  width    = 8,
+  height   = 5,
+  dpi      = 300,
+  bg       = "white"
+)
+```
+
