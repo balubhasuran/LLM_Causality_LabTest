@@ -22,7 +22,7 @@ We benchmark **GPT-o1** and **Llama-3.2-8B-Instruct** on **99** lab-test scenari
 │     ├─ causality_fewshot.txt
 │     └─ examples.tsv
 ├─ data/
-│  ├─ dataset/
+│  ├─ DataSet.xlsx
 ├─ scripts/
 │  ├─ Causality.py
 │  ├─ IRRFile.ipynb
