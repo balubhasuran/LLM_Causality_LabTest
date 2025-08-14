@@ -17,35 +17,36 @@ We benchmark **GPT-o1** and **Llama-3.2-8B-Instruct** on **99** lab-test scenari
 ```
 .
 ├─ config/
-│  ├─ config.yaml                
+│  ├─ config.yaml
 │  └─ prompts/
-│     ├─ causality_fewshot.txt   
-│     └─ examples.tsv            
+│     ├─ causality_fewshot.txt
+│     └─ examples.tsv
 ├─ data/
-│  ├─ raw/                       
-│  ├─ processed/                 
-│  └─ metadata/                  
+│  ├─ raw/
+│  ├─ processed/
+│  └─ metadata/
 ├─ scripts/
-│  ├─ 01_generate_questions.py   
-│  ├─ 02_run_models.py           
-│  ├─ 03_postprocess_outputs.py  
-│  ├─ 04_collate_ratings.py      
-│  ├─ 05_compute_metrics.R       
-│  ├─ 06_plot_heatmaps.py        
-│  ├─ 07_export_tables.R         
-│  └─ utils/                     
+│  ├─ Causality.py
+│  ├─ IRRFile.ipynb
+│  ├─ Accuracy R Code.Rmd
+│  ├─ IRR_Causality.Rmd
+│  └─ IRR_Causality_4Raters.Rmd
+│  └─ utils/
 ├─ results/
 │  ├─ metrics/
 │  ├─ figures/
 │  └─ tables/
 ├─ env/
-│  ├─ environment.yml            
-│  └─ r-packages.R               
+│  ├─ environment.yml
+│  └─ r-packages.R
 ├─ notebooks/
-│  ├─ exploratory.ipynb
-│  └─ sanity_checks.ipynb
+│  ├─ Causality.ipynb
+│  ├─ Accuracy R Code.nb.html
+│  ├─ IRR_Causality.nb.html
+│  └─ IRR_Causality_4Raters.html
 ├─ CITATION.cff
-└─ README.md                     
+└─ README.md
+                 
 ```
 
 ---
